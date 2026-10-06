@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speech test</title>
+<style>
+  :root { --bg: #fff; --fg: #111; --muted: #666; --card: #f4f4f5; --accent: #4f6bed; --err: #c62828; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #999; --card: #1d1d1f; --accent: #7b93ff; --err: #ff6b6b; } }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; display: grid; gap: 14px; }
+  h1 { font-size: 20px; margin: 0; }
+  p { margin: 0; color: var(--muted); font-size: 14px; }
+  select, button { font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid #8884; background: var(--card); color: var(--fg); }
+  button.main { background: var(--accent); color: #fff; border: 0; font-weight: 600; padding: 14px; }
+  .box { background: var(--card); border-radius: 12px; padding: 12px; min-height: 90px; white-space: pre-wrap; word-break: break-word; }
+  .interim { color: var(--muted); }
+  #log { font: 12px/1.4 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; }
+  .err { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Speech test</h1>
+  <p>Tries your browser's built-in speech recognition (the Web Speech API). Pick a language, tap Start, speak, tap Stop.</p>
+  <label>Language
+    <select id="lang">
+      <option value="">This device's language</option>
+      <option>en-US</option><option>he-IL</option><option>ru-RU</option><option>uk-UA</option>
+      <option>de-DE</option><option>fr-FR</option><option>es-ES</option>
+    </select>
+  </label>
+  <button id="go" class="main">Start</button>
+  <div class="box"><span id="final"></span><span id="interim" class="interim"></span></div>
+  <button id="clear">Clear</button>
+  <div id="log"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const log = (msg, err) => { const d = document.createElement('div'); d.textContent = `${(performance.now() / 1000).toFixed(1)}s ${msg}`; if (err) d.className = 'err'; $('log').prepend(d); };
+log(`${navigator.userAgent}`);
+log(`origin: ${location.origin}, secure context: ${window.isSecureContext}`);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) { log('No speech recognition in this browser.', true); $('go').disabled = true; }
+let rec = null;
+$('go').onclick = () => {
+  if (rec) { rec.stop(); $('go').textContent = 'Stopping…'; return; }
+  rec = new SR();
+  rec.lang = $('lang').value || navigator.language;
+  rec.continuous = true;
+  rec.interimResults = true;
+  let started = 0;
+  rec.onstart = () => { started = performance.now(); log(`listening (${rec.lang})`); $('go').textContent = 'Stop'; };
+  rec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) { $('final').textContent += r[0].transcript + ' '; log(`final (${(r[0].confidence * 100).toFixed(0)}%): ${r[0].transcript}`); }
+      else interim += r[0].transcript;
+    }
+    $('interim').textContent = interim;
+  };
+  rec.onerror = (e) => log(`error: ${e.error}${e.message ? ' – ' + e.message : ''}`, true);
+  rec.onend = () => { log(`ended after ${((performance.now() - started) / 1000).toFixed(1)}s`); $('interim').textContent = ''; rec = null; $('go').textContent = 'Start'; };
+  try { rec.start(); } catch (err) { log(`start failed: ${err}`, true); rec = null; }
+};
+$('clear').onclick = () => { $('final').textContent = ''; $('interim').textContent = ''; };
+</script>
+</body>
+</html>
