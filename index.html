@@ -33,6 +33,7 @@
   <button id="go" class="main">Start</button>
   <div class="box"><span id="final"></span><span id="interim" class="interim"></span></div>
   <button id="clear">Clear</button>
+  <button id="mic">Test the microphone only</button>
   <div id="log"></div>
 </main>
 <script>
@@ -63,6 +64,14 @@ $('go').onclick = () => {
   rec.onerror = (e) => log(`error: ${e.error}${e.message ? ' – ' + e.message : ''}`, true);
   rec.onend = () => { log(`ended after ${((performance.now() - started) / 1000).toFixed(1)}s`); $('interim').textContent = ''; rec = null; $('go').textContent = 'Start'; };
   try { rec.start(); } catch (err) { log(`start failed: ${err}`, true); rec = null; }
+};
+$('mic').onclick = async () => {
+  try {
+    if (navigator.permissions) { try { log(`mic permission state: ${(await navigator.permissions.query({ name: 'microphone' })).state}`); } catch {} }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    log(`microphone works: ${stream.getAudioTracks()[0]?.label || 'audio track'}`);
+    stream.getTracks().forEach((t) => t.stop());
+  } catch (err) { log(`microphone refused: ${err.name} – ${err.message}`, true); }
 };
 $('clear').onclick = () => { $('final').textContent = ''; $('interim').textContent = ''; };
 </script>
